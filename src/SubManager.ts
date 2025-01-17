@@ -1,4 +1,5 @@
 import { Poller } from "./poller";
+import { RPCManager } from "./RPCManager";
 import { Subscription } from "./subscription";
 import { Listeners, SubType } from "./types";
 
@@ -11,6 +12,11 @@ export class SubManager {
   private poller?: Poller;
   private isFallbackActive: boolean = false;
   private debounceTimer?: number;
+  private RPCManager: RPCManager;
+
+  constructor(url: string) {
+    this.RPCManager = new RPCManager(url);
+  }
 
   addListener(
     type: "mint" | "melt",
@@ -40,17 +46,37 @@ export class SubManager {
 
   private handlePendingSubscriptions() {
     const pendingSubs = this.pendingSubscriptions;
-    console.log(pendingSubs);
-    pendingSubs.mint.forEach((s) => {
-      s.setActive();
-    });
-    //TODO: Actually handle subs
-    setTimeout(() => {
-      pendingSubs.mint.forEach((s) => s.state === "active");
-      pendingSubs.melt.forEach((s) => s.state === "active");
-      console.log(this.pendingSubscriptions);
-    }, 500);
+    for (let i = 0; i < pendingSubs.mint.length; i++) {
+      pendingSubs.mint[i]?.setOpening();
+    }
+    for (let i = 0; i < pendingSubs.melt.length; i++) {
+      pendingSubs.melt[i]?.setOpening();
+    }
+    if (pendingSubs.mint.length > 0) {
+      this.RPCManager.createSubscription(
+        {
+          kind: "bolt11_mint_quote",
+          filters: pendingSubs.mint.map((s) => s.id),
+        },
+        this.handleUpdate,
+        this.handleError,
+      );
+    }
+    if (pendingSubs.melt.length > 0) {
+      this.RPCManager.createSubscription(
+        {
+          kind: "bolt11_melt_quote",
+          filters: pendingSubs.mint.map((s) => s.id),
+        },
+        this.handleUpdate,
+        this.handleError,
+      );
+    }
   }
+
+  private handleUpdate() {}
+
+  private handleError() {}
 
   private get pendingSubscriptions() {
     const pendingMintSubs: Subscription[] = [];

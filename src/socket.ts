@@ -1,15 +1,4 @@
-type SocketOptions = {
-  url: string;
-  maxRetries?: number;
-  backoffFactor?: number;
-  maxBackoffTime?: number;
-  connectionTimeout?: number;
-  onOpen?: (event: Event) => void;
-  onClose?: (event: CloseEvent) => void;
-  onReconnectFailed?: () => void;
-  onMessage?: (event: MessageEvent) => void;
-  onError?: (event: Event) => void;
-};
+import { SocketOptions } from "./types";
 
 export class Socket {
   private url: string;

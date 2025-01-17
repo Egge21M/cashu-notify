@@ -3,7 +3,7 @@ import { Listeners } from "./types";
 export class Subscription {
   type: "mint" | "melt";
   id: string;
-  state: "pending" | "active" | "expired" = "pending";
+  state: "pending" | "active" | "expired" | "opening" = "pending";
   private listeners: Listeners[] = [];
   constructor(type: "mint" | "melt", id: string) {
     this.type = type;
@@ -32,6 +32,10 @@ export class Subscription {
 
   setActive() {
     this.state = "active";
+  }
+
+  setOpening() {
+    this.state = "pending";
   }
 
   get listenerCount() {
