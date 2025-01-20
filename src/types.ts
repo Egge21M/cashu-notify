@@ -13,6 +13,7 @@ export type SocketOptions = {
   connectionTimeout?: number;
   onOpen?: (event: Event) => void;
   onClose?: (event: CloseEvent) => void;
+  onReconnect?: () => void;
   onReconnectFailed?: () => void;
   onMessage?: (event: MessageEvent) => void;
   onError?: (event: Event) => void;

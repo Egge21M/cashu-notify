@@ -18,12 +18,16 @@ export class RPCManager {
   private rpcId = 0;
   private callbacks: { onUpdate: (msg: JsonRpcNotification) => void };
 
-  constructor(url: string, onUpdate: (msk: JsonRpcNotification) => void) {
+  constructor(url: string, callbacks: { onUpdate: any; onReconnect: any }) {
     this.url = new URL(url);
     this.messageQueue = new Queue();
-    this.ws = new Socket({ url, onMessage: this.onMessage });
+    this.ws = new Socket({
+      url,
+      onMessage: this.onMessage,
+      onReconnect: callbacks.onReconnect,
+    });
     this.ws.connect();
-    this.callbacks = { onUpdate: onUpdate };
+    this.callbacks = { onUpdate: callbacks.onUpdate };
   }
 
   onMessage(e: MessageEvent) {

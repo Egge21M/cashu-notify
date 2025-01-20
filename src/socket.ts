@@ -32,6 +32,9 @@ export class Socket {
     }, this.connectionTimeout);
 
     this.ws.onopen = (event) => {
+      if (this.retryCount > 0) {
+        this.options?.onReconnect?.();
+      }
       clearTimeout(timeout);
       this.retryCount = 0;
       this.options.onOpen?.(event);

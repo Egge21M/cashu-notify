@@ -9,7 +9,10 @@ export class SubManager {
   private RPCManager: RPCManager;
 
   constructor(url: string) {
-    this.RPCManager = new RPCManager(url, this.handleUpdate);
+    this.RPCManager = new RPCManager(url, {
+      onUpdate: this.handleUpdate,
+      onReconnect: this.handleReconnect,
+    });
   }
 
   addListener(
@@ -105,6 +108,22 @@ export class SubManager {
   //   }
   //   return { mint: pendingMintSubs, melt: pendingMeltSubs };
   // }
+
+  handleReconnect() {
+    const activeSubscriptions = Object.keys(this.subscriptions).map(
+      (i) => this.subscriptions[i],
+    );
+    for (let i = 0; i > activeSubscriptions.length; i++) {
+      const sub = activeSubscriptions[i] as Subscription;
+      const kind =
+        sub?.type === "mint" ? "bolt11_mint_quote" : "bolt11_melt_quote";
+      this.RPCManager.createSubscription(
+        { kind, filters: [sub.id] },
+        [sub],
+        sub.error,
+      );
+    }
+  }
 
   get subs() {
     return this.subscriptions;
