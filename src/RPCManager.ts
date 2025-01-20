@@ -1,5 +1,6 @@
 import { Queue } from "./queue";
 import { Socket } from "./socket";
+import { Subscription } from "./subscription";
 import {
   JsonRpcErrorObject,
   JsonRpcMessage,
@@ -11,17 +12,18 @@ import {
 export class RPCManager {
   public readonly url: URL;
   private ws: Socket;
-  private subListeners: { [subId: string]: Array<(payload: any) => any> } = {};
   private rpcListeners: { [rpcSubId: string]: any } = {};
   private messageQueue: Queue<any>;
   private handlingInterval?: number;
   private rpcId = 0;
+  private callbacks: { onUpdate: (msg: JsonRpcNotification) => void };
 
-  constructor(url: string) {
+  constructor(url: string, onUpdate: (msk: JsonRpcNotification) => void) {
     this.url = new URL(url);
     this.messageQueue = new Queue();
     this.ws = new Socket({ url, onMessage: this.onMessage });
     this.ws.connect();
+    this.callbacks = { onUpdate: onUpdate };
   }
 
   onMessage(e: MessageEvent) {
@@ -50,11 +52,6 @@ export class RPCManager {
     this.ws.send(JSON.stringify(["CLOSE", subId]));
   }
 
-  addSubListener(subId: string, callback: (payload: any) => any) {
-    (this.subListeners[subId] = this.subListeners[subId] || []).push(callback);
-  }
-
-  //TODO: Move to RPCManagerClass
   private addRpcListener(
     callback: () => any,
     errorCallback: (e: JsonRpcErrorObject) => any,
@@ -63,22 +60,8 @@ export class RPCManager {
     this.rpcListeners[id] = { callback, errorCallback };
   }
 
-  //TODO: Move to RPCManagerClass
   private removeRpcListener(id: Exclude<RpcSubId, null>) {
     delete this.rpcListeners[id];
-  }
-
-  private removeListener(subId: string, callback: (payload: any) => any) {
-    if (!this.subListeners[subId]) {
-      return;
-    }
-    if (this.subListeners[subId]?.length < 2) {
-      delete this.subListeners[subId];
-      return;
-    }
-    this.subListeners[subId] = this.subListeners[subId].filter(
-      (fn: any) => fn !== callback,
-    );
   }
 
   private handleNextMesage() {
@@ -105,16 +88,7 @@ export class RPCManager {
         if ("id" in parsed) {
           // Do nothing as mints should not send requests
         } else {
-          const subId = parsed.params.subId;
-          if (!subId) {
-            return;
-          }
-          if (this.subListeners[subId] && this.subListeners[subId].length > 0) {
-            const notification = parsed as JsonRpcNotification;
-            this.subListeners[subId].forEach((cb) =>
-              cb(notification.params.payload),
-            );
-          }
+          this.callbacks.onUpdate(parsed);
         }
       }
     } catch (e) {
@@ -125,13 +99,15 @@ export class RPCManager {
 
   createSubscription(
     params: Omit<JsonRpcReqParams, "subId">,
-    callback: (payload: any) => any,
+    subs: Subscription[],
     errorCallback: (e: Error) => any,
   ) {
     const subId = (Math.random() + 1).toString(36).substring(7);
     this.addRpcListener(
       () => {
-        this.addSubListener(subId, callback);
+        subs.forEach((s) => {
+          s.setActive();
+        });
       },
       (e: JsonRpcErrorObject) => {
         errorCallback(new Error(e.message));
@@ -144,13 +120,8 @@ export class RPCManager {
   }
 
   cancelSubscription(subId: string, callback: (payload: any) => any) {
-    this.removeListener(subId, callback);
     this.rpcId++;
     this.sendRequest("unsubscribe", { subId });
-  }
-
-  get activeSubscriptions() {
-    return Object.keys(this.subListeners);
   }
 
   close() {
