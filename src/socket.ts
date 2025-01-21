@@ -23,7 +23,7 @@ export class Socket {
     this.connectionTimeout = options.connectionTimeout ?? 5000;
   }
 
-  public connect(): void {
+  connect() {
     if (
       this.ws &&
       (this.ws.readyState === WebSocket.CONNECTING ||
@@ -42,7 +42,6 @@ export class Socket {
     }, this.connectionTimeout);
 
     this.ws.onopen = (event) => {
-      console.log("opened");
       if (this.retryCount > 0) {
         this.options?.onReconnect?.();
       }
@@ -54,7 +53,7 @@ export class Socket {
     this.ws.onclose = (event) => {
       clearTimeout(timeout);
       this.options.onClose?.(event);
-      if (!this.isManualClose) this.reconnect();
+      if (!this.isManualClose) this.#reconnect();
     };
 
     this.ws.onmessage = (event) => {
@@ -70,8 +69,7 @@ export class Socket {
     };
   }
 
-  private reconnect(): void {
-    console.log("Lost connection... Reconnecting");
+  #reconnect() {
     if (this.retryCount >= this.maxRetries) {
       this.options.onReconnectFailed?.();
       return;
@@ -88,7 +86,7 @@ export class Socket {
     }, backoffTime) as unknown as number;
   }
 
-  public disconnect(): void {
+  disconnect() {
     this.isManualClose = true;
     this.retryCount = 0;
     if (this.reconnectTimeoutId) {
@@ -99,7 +97,7 @@ export class Socket {
     this.ws = undefined;
   }
 
-  handleQueue() {
+  #handleQueue() {
     if (this.ws?.readyState !== WebSocket.OPEN) {
       return;
     }
@@ -110,20 +108,20 @@ export class Socket {
     }
     const msg = this.sendQueue.dequeue();
     if (msg) {
-      this._send(msg);
+      this.#send(msg);
     }
   }
 
-  public send(data: string) {
+  send(data: string) {
     this.sendQueue.enqueue(data);
     if (!this.sendInterval) {
       this.sendInterval = setInterval(() => {
-        this.handleQueue();
+        this.#handleQueue();
       }, 50) as unknown as number;
     }
   }
 
-  private _send(data: string | ArrayBuffer | Blob): void {
+  #send(data: string): void {
     if (this.ws?.readyState === WebSocket.OPEN) {
       this.ws.send(data);
     } else {
