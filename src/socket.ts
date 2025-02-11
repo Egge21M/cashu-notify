@@ -24,14 +24,12 @@ export class Socket {
   }
 
   connect() {
+    console.log("Socket connecting");
     if (
       this.ws &&
       (this.ws.readyState === WebSocket.CONNECTING ||
         this.ws.readyState === WebSocket.OPEN)
     ) {
-      console.warn(
-        "WebSocket is already connected or connecting. Skipping reconnect.",
-      );
       return;
     }
     this.ws = new WebSocket(this.url);
@@ -42,6 +40,7 @@ export class Socket {
     }, this.connectionTimeout);
 
     this.ws.onopen = (event) => {
+      console.log("Socket open");
       if (this.retryCount > 0) {
         this.options?.onReconnect?.();
       }
@@ -51,12 +50,14 @@ export class Socket {
     };
 
     this.ws.onclose = (event) => {
+      console.log("Socket closed");
       clearTimeout(timeout);
       this.options.onClose?.(event);
-      if (!this.isManualClose) this.#reconnect();
+      if (!this.isManualClose) this.reconnect();
     };
 
     this.ws.onmessage = (event) => {
+      console.log("Received event: ", event);
       this.options.onMessage?.(event);
     };
 
@@ -69,7 +70,7 @@ export class Socket {
     };
   }
 
-  #reconnect() {
+  private reconnect() {
     if (this.retryCount >= this.maxRetries) {
       this.options.onReconnectFailed?.();
       return;
@@ -97,7 +98,7 @@ export class Socket {
     this.ws = undefined;
   }
 
-  #handleQueue() {
+  private handleQueue() {
     if (this.ws?.readyState !== WebSocket.OPEN) {
       return;
     }
@@ -108,7 +109,7 @@ export class Socket {
     }
     const msg = this.sendQueue.dequeue();
     if (msg) {
-      this.#send(msg);
+      this._send(msg);
     }
   }
 
@@ -116,12 +117,12 @@ export class Socket {
     this.sendQueue.enqueue(data);
     if (!this.sendInterval) {
       this.sendInterval = setInterval(() => {
-        this.#handleQueue();
+        this.handleQueue();
       }, 50) as unknown as number;
     }
   }
 
-  #send(data: string): void {
+  private _send(data: string): void {
     if (this.ws?.readyState === WebSocket.OPEN) {
       this.ws.send(data);
     } else {

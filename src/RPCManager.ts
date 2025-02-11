@@ -13,7 +13,7 @@ export class RPCManager {
   public readonly url: URL;
   private ws: Socket;
   private rpcListeners: { [rpcSubId: string]: any } = {};
-  private messageQueue: Queue<any>;
+  private messageQueue: Queue<string>;
   private handlingInterval?: number;
   private rpcId = 0;
   private callbacks: { onUpdate: (msg: JsonRpcNotification) => void };
@@ -23,7 +23,10 @@ export class RPCManager {
     this.messageQueue = new Queue();
     this.ws = new Socket({
       url,
-      onMessage: this.onMessage,
+      onMessage: this.onMessage.bind(this),
+      onError: (e) => {
+        console.log(e);
+      },
       onReconnect: callbacks.onReconnect,
     });
     this.ws.connect();
@@ -50,6 +53,10 @@ export class RPCManager {
     this.rpcId++;
     const message = JSON.stringify({ jsonrpc: "2.0", method, params, id });
     this.ws.send(message);
+  }
+
+  sendHeartbeat() {
+    this.ws.send("ping");
   }
 
   closeSubscription(subId: string) {
